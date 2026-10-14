@@ -3,8 +3,10 @@ name: build-push
 on:
   push:
     branches: [master]
-    paths-ignore:
-      - docker-compose-local.yaml
+    paths:
+      - solar-sync-broker-api/**
+      - solar-sync-broker-ops/Dockerfile
+      - .github/workflows/build-push.yaml
   workflow_dispatch:
 
 permissions:
@@ -12,21 +14,28 @@ permissions:
 
 env:
   IMAGE: sebi123q/solarsyncbroker-app
+  API_DIR: solar-sync-broker-api
+  COMPOSE_LOCAL: solar-sync-broker-ops/docker-compose-local.yaml
+  COMPOSE_PLATFORM: solar-sync-broker-ops/docker-compose-platform.yaml
   RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: solar-sync-broker-api
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
           cache: maven
+          cache-dependency-path: solar-sync-broker-api/pom.xml
 
       - name: Teste
         run: mvn -B test
@@ -37,10 +46,9 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
+          errors: true
           payload: |
             text: "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} *${{ github.repository }}* · test · ${{ job.status }}\n<${{ env.RUN_URL }}|Vezi run-ul>"
-            
-
 
   build-push:
     needs: test
@@ -67,7 +75,8 @@ jobs:
       - name: Build si push
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: ${{ env.API_DIR }}
+          file: solar-sync-broker-ops/Dockerfile
           push: true
           tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.value }}
           cache-from: type=gha
@@ -79,6 +88,7 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
+          errors: true
           payload: |
             text: "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} *${{ github.repository }}* · build-push · ${{ job.status }} · `${{ env.IMAGE }}:${{ steps.tag.outputs.value }}`\n<${{ env.RUN_URL }}|Vezi run-ul>"
 
@@ -94,7 +104,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Scrie tagul nou in compose
-        run: sed -i "s|${IMAGE}:.*|${IMAGE}:${TAG}|" docker-compose-local.yaml
+        run: |
+          grep -q "image: ${IMAGE}:" "${COMPOSE_LOCAL}"
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|" "${COMPOSE_LOCAL}"
 
       - name: Commit si push
         run: |
@@ -104,8 +116,9 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docker-compose-local.yaml
+          git add "${COMPOSE_LOCAL}"
           git commit -m "compose: ${IMAGE}:${TAG}"
+          git pull --rebase
           git push
 
       - name: Slack
@@ -114,46 +127,46 @@ jobs:
         with:
           webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
           webhook-type: incoming-webhook
+          errors: true
           payload: |
             text: "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} *${{ github.repository }}* · update-compose · ${{ job.status }} · compose pe `${{ env.TAG }}`\n<${{ env.RUN_URL }}|Vezi run-ul>"
-            
-      
 
-    update-platform:
-      needs: build-push
-      runs-on: ubuntu-latest
-      env:
-        TAG: ${{ steps.tag.outputs.value  }}
-      steps:
-        - name: Checkout platforma
-          uses: actions/checkout@v4
-          with:
-            repository: ${{ env.platform-deploy }}
-            ssh-key: ${{ secrets.PLATFORM_DEPLOY_KEY }}
+  update-platform:
+    needs: [build-push, update-compose]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.build-push.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
-        - name: Scrie tagul nou in compose-ul platformei
-          run: |
-            grep -q "image: ${IMAGE}:" docker-compose.yaml
-            sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|" docker-compose.yaml
+      - name: Scrie tagul nou in compose-ul platformei
+        run: |
+          git pull --rebase
+          grep -q "image: ${IMAGE}:" "${COMPOSE_PLATFORM}"
+          sed -i "s|image: ${IMAGE}:.*|image: ${IMAGE}:${TAG}|" "${COMPOSE_PLATFORM}"
 
-        - name: Commit si push
-          run: |
-            if git diff --quiet; then
-              echo "tagul ${TAG} era deja in platforma"
-              exit 0
-            fi
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add docker-compose.yaml
-            git commit -m "${IMAGE}:${TAG} din ${GITHUB_REPOSITORY}@${GITHUB_SHA::7}"
-            git pull --rebase
-            git push 
+      - name: Commit si push
+        run: |
+          if git diff --quiet; then
+            echo "tagul ${TAG} era deja in platforma"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${COMPOSE_PLATFORM}"
+          git commit -m "platform: ${IMAGE}:${TAG}"
+          git pull --rebase
+          git push
 
-        - name: Slack
-          if: ${{ !cancelled() }}
-          uses: slackapi/slack-github-action@v4.0.0
-          with:
-            webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-            webhook-type: incoming-webhook
-            payload: |
-              text: "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} *${{ github.repository }}* · update-compose · ${{ job.status }} · compose pe `${{ env.TAG }}`\n<${{ env.RUN_URL }}|Vezi run-ul>"
+      - name: Slack
+        if: ${{ !cancelled() }}
+        uses: slackapi/slack-github-action@v4.0.0
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          errors: true
+          payload: |
+            text: "${{ job.status == 'success' && ':white_check_mark:' || ':x:' }} *${{ github.repository }}* · update-platform · ${{ job.status }} · platforma pe `${{ env.TAG }}`\n<${{ env.RUN_URL }}|Vezi run-ul>"
