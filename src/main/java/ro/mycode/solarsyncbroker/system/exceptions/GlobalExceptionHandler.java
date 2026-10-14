@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ro.mycode.solarsyncbroker.battery.exceptions.AccessDeniedExceptions;
 import ro.mycode.solarsyncbroker.battery.exceptions.BatteryAlreadyExistsException;
 import ro.mycode.solarsyncbroker.battery.exceptions.BatteryNotFoundException;
+import ro.mycode.solarsyncbroker.financial.exceptions.FinancialTransactionNotFoundException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyexistsException;
@@ -18,7 +19,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({
             UserNotFoundException.class,
             BatteryNotFoundException.class,
-            HouseNotFoundException.class
+            HouseNotFoundException.class,
+            FinancialTransactionNotFoundException.class,
     })
     public ResponseEntity<String> handleNotFoundExceptions(RuntimeException e) {
         ApiErrorResponse apiErrorResponse = ApiErrorResponse.builder()

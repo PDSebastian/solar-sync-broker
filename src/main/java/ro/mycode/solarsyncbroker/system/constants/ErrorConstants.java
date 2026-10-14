@@ -11,4 +11,5 @@ public class ErrorConstants {
     public static final String BATTERY_POWER_LIMIT = "BATTERY_POWER_LIMIT";
     public static final String BATTERY_SOC_LIMIT = "BATTERY_SOC_LIMIT";
     public static final String ACCESS_DENIED = "Access denied";
+    public static final String FINANCIAL_TRANSACTION_NOT_FOUND = "Financial transaction not found";
 }
