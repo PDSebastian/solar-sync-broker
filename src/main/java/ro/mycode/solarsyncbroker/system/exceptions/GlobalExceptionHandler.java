@@ -25,7 +25,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleNotFoundExceptions(RuntimeException e) {
         ApiErrorResponse apiErrorResponse = ApiErrorResponse.builder()
                 .message(e.getMessage())
-                .status(HttpStatus.NOT_FOUND.value()) // Corectat la 404
+                .status(HttpStatus.NOT_FOUND.value())
                 .build();
         return new ResponseEntity<>(apiErrorResponse.error(), HttpStatus.NOT_FOUND);
     }
