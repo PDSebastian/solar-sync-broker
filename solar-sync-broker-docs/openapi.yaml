@@ -1,0 +1,916 @@
+openapi: 3.1.0
+info:
+  title: solar-sync-broker API
+  version: 1.0.0
+  description: |
+    Comunitate de case cu panouri și baterii, cu un agent care propune comenzi validate determinist.
+
+    Căile, metodele și `operationId`-urile sunt cele din controllerele de la `ab630df`.
+    Unde codul de azi se abate de la convenția `/api/v1/<substantiv-la-plural>`, operația e marcată
+    `deprecated` și descrierea spune calea țintă. Operațiile cu „Planificat” nu există încă în cod.
+    Schemele poartă numele claselor DTO din cod, ca să le găsești ușor.
+
+    Orele: `2026-10-20T10:00:00`, fără fus orar. Puterea în kW, energia în kWh, SoC în procente, banii în lei.
+    Erorile au forma `ApiErrorResponse`.
+servers:
+  - url: http://localhost:8081
+    description: local
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+    description: Cont și token JWT
+  - name: users
+    description: Conturi create de administrator
+  - name: houses
+    description: Casele comunității
+  - name: battery
+    description: Bateria fiecărei case și comenzile ei
+  - name: simulation
+    description: Tick-ul simulării, telemetria și starea comunității
+  - name: financial
+    description: Tranzacțiile de energie
+  - name: grid
+    description: Transformatorul comun
+  - name: agent
+    description: Rulările agentului și aprobarea lor
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Creează un cont de proprietar
+      operationId: register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthReqisterRequest' }
+      responses:
+        '201':
+          description: Cont creat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Întoarce utilizatorul și tokenul JWT
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthLoginrequest' }
+      responses:
+        '200':
+          description: Autentificat; tokenul e în câmpul `token`
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      summary: Utilizatorul din token
+      description: Planificat — F1.3.
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/user/add:
+    post:
+      tags: [users]
+      summary: Administratorul creează un cont OPERATOR sau USER
+      description: |
+        Inconsecvență: `/api/v1/user` la singular și verbul `add` în cale. Calea țintă: `POST /api/v1/users`.
+        Azi cere `hasAuthority('ADMIN')`, dar `ADMIN` e tip de cont, nu permisiune → 403 pentru oricine.
+        Țintă: `USER_MANAGE`, iar răspunsul 201 vine cu corp.
+      operationId: addUser
+      deprecated: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRequest' }
+      responses:
+        '201':
+          description: Cont creat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/houses:
+    get:
+      tags: [houses]
+      summary: Casele vizibile utilizatorului (HOUSE_VIEW)
+      description: ADMIN și OPERATOR văd toate casele; USER doar casa lui. Azi întoarce toate casele oricui.
+      operationId: getAllHouses
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HouseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [houses]
+      summary: Adaugă o casă, cu bateria ei implicită (HOUSE_MANAGE)
+      operationId: createHouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HouseRequest' }
+      responses:
+        '201':
+          description: Creată
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/houses/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [houses]
+      summary: O casă (HOUSE_VIEW; proprietarul, ADMIN sau OPERATOR)
+      operationId: getHouseById
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [houses]
+      summary: Înlocuiește toate câmpurile casei (HOUSE_MANAGE)
+      operationId: updateHouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HouseRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    patch:
+      tags: [houses]
+      summary: Schimbă doar câmpurile trimise (HOUSE_MANAGE)
+      operationId: patchHouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HousePatch' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HouseResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [houses]
+      summary: Șterge o casă fără istoric (HOUSE_MANAGE)
+      operationId: deleteHouse
+      responses:
+        '204':
+          description: Ștearsă
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/houses/{houseId}/battery:
+    parameters:
+      - $ref: '#/components/parameters/HouseId'
+    get:
+      tags: [battery]
+      summary: Bateria casei (BATTERY_VIEW)
+      description: În `HouseController` parametrul se numește `id`, aici `houseId` — aceeași casă.
+      operationId: getBattery
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BatteryResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/houses/{houseId}/battery/configuration:
+    parameters:
+      - $ref: '#/components/parameters/HouseId'
+    patch:
+      tags: [battery]
+      summary: Schimbă puterile maxime ale bateriei (BATTERY_CONFIG)
+      operationId: updateConfiguration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BatteryConfigurationRequest' }
+      responses:
+        '200':
+          description: Salvat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BatteryResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/houses/{houseId}/battery/commands:
+    parameters:
+      - $ref: '#/components/parameters/HouseId'
+    get:
+      tags: [battery]
+      summary: Istoricul comenzilor casei (BATTERY_COMMAND)
+      operationId: getCommands
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CommandExecutionResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [battery]
+      summary: Trimite o comandă bateriei (BATTERY_COMMAND)
+      description: |
+        Comanda imposibilă fizic se salvează tot cu 201, dar cu `status: REJECTED` și `failureReason`;
+        bateria nu se schimbă.
+      operationId: sendCommand
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BatteryCommandRequest' }
+      responses:
+        '201':
+          description: Comanda s-a înregistrat, executată sau respinsă
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommandExecutionResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/simulation/tick:
+    post:
+      tags: [simulation]
+      summary: Rulează un tick pentru toate casele active (SIMULATION_CONTROL)
+      description: Planificat — F4.2. Scrie câte un rând de telemetrie pe casă, tranzacțiile (F5.1) și starea rețelei (F6.1).
+      operationId: runSimulationTick
+      responses:
+        '201':
+          description: Tick rulat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SimulationTickResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/houses/{houseId}/telemetry:
+    parameters:
+      - $ref: '#/components/parameters/HouseId'
+    get:
+      tags: [simulation]
+      summary: Ultimele 50 de măsurători ale casei (TELEMETRY_VIEW)
+      description: Planificat — F4.3. Cele mai noi primele.
+      operationId: getHouseTelemetry
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 50
+                items: { $ref: '#/components/schemas/HouseTelemetryPageResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/community/state:
+    get:
+      tags: [simulation]
+      summary: Starea comunității după ultimul tick (COMMUNITY_VIEW)
+      description: Planificat — F4.4.
+      operationId: getCommunityState
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ComunityStateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /houses/{id}/financial-summary:
+    parameters:
+      - $ref: '#/components/parameters/Id'
+    get:
+      tags: [financial]
+      summary: Tranzacțiile unei case (FINANCIAL_VIEW)
+      description: |
+        Inconsecvență: `FinancialController` are `@RequestMapping("/houses")`, fără `/api/v1`.
+        Calea țintă: `GET /api/v1/houses/{houseId}/financial-summary`, cu verificarea de proprietar.
+        Azi `FINANCIAL_VIEW` nu există în `UserPermissions` → 403 cu orice token real.
+      operationId: getHouseFinancialSummary
+      deprecated: true
+      responses:
+        '200':
+          description: OK, cele mai noi primele
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FinancialtransactionResponseToDto' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /houses/community/financial-summary:
+    get:
+      tags: [financial]
+      summary: Tranzacțiile întregii comunități (COMMUNITY_VIEW)
+      description: |
+        Inconsecvență: fără `/api/v1`, iar `community` stă pe locul unui id de casă.
+        Calea țintă: `GET /api/v1/community/financial-summary`.
+        Azi `COMMUNITY_VIEW` nu există în `UserPermissions` → 403 cu orice token real.
+      operationId: getCommunityFinancialSummary
+      deprecated: true
+      responses:
+        '200':
+          description: OK, cele mai noi primele
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FinancialtransactionResponseToDto' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/grid/state:
+    get:
+      tags: [grid]
+      summary: Starea transformatorului la ultimul tick (GRID_VIEW)
+      description: Planificat — F6.2.
+      operationId: getGridState
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GridStateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404':
+          description: Nu a rulat încă niciun tick
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+
+  /api/v1/agent/runs:
+    get:
+      tags: [agent]
+      summary: Rulările agentului, cele mai noi primele (AGENT_VIEW)
+      description: Planificat — F7.2.
+      operationId: getAgentRuns
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AgentRunResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [agent]
+      summary: Pornește o rulare a agentului (AGENT_OPERATE)
+      description: Planificat — F7.1. Deciziile se validează și se salvează; în `ADVISORY` nu se execută.
+      operationId: runAgent
+      responses:
+        '201':
+          description: Rulare creată, cu deciziile ei
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRunResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/agent/runs/{runId}:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    get:
+      tags: [agent]
+      summary: O rulare, cu toate deciziile ei (AGENT_VIEW)
+      description: Planificat — F7.2.
+      operationId: getAgentRun
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRunResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/agent/runs/{runId}/approve:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [agent]
+      summary: Aprobă rularea; deciziile valide devin comenzi (AGENT_OPERATE)
+      description: Planificat — F7.3. Doar din `PROPOSED`, altfel 409.
+      operationId: approveAgentRun
+      responses:
+        '200':
+          description: Aprobată
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRunResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/agent/runs/{runId}/reject:
+    parameters:
+      - $ref: '#/components/parameters/RunId'
+    post:
+      tags: [agent]
+      summary: Respinge rularea; nicio baterie nu se schimbă (AGENT_OPERATE)
+      description: Planificat — F7.3. Doar din `PROPOSED`, altfel 409.
+      operationId: rejectAgentRun
+      responses:
+        '200':
+          description: Respinsă
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AgentRunResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/simulation/state:
+    get:
+      tags: [simulation]
+      summary: Simularea rulează sau e pe pauză (SIMULATION_CONTROL)
+      description: Planificat, opțional — F8.2.
+      operationId: getSimulationState
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SimulationStateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/simulation/control:
+    post:
+      tags: [simulation]
+      summary: Pornește sau pune pe pauză tick-ul automat (SIMULATION_CONTROL)
+      description: Planificat, opțional — F8.2.
+      operationId: controlSimulation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SimulationControlRequest' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SimulationStateResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Tokenul din `login`, HS512, claim-ul `authorities` = permisiunile, valabil 7 zile.
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    HouseId:
+      name: houseId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+    RunId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+
+  responses:
+    BadRequest:
+      description: Date invalide
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+          example:
+            timestamp: '2026-10-20T10:00:00'
+            status: 400
+            error: BAD_REQUEST
+            message: 'pvPeakPowerKw: pvPeakPowerKw trebuie sa fie mai mare ca 0'
+            path: /api/v1/houses
+    Unauthorized:
+      description: Lipsește tokenul, e expirat sau login greșit
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+          example:
+            timestamp: '2026-10-20T10:00:00'
+            status: 401
+            error: UNAUTHORIZED
+            message: Trebuie sa fii autentificat pentru a accesa aceasta resursa.
+            path: /api/v1/houses
+    Forbidden:
+      description: Permisiunea lipsește sau casa nu e a ta
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+          example:
+            timestamp: '2026-10-20T10:00:00'
+            status: 403
+            error: FORBIDDEN
+            message: Nu ai permisiunea necesara pentru aceasta actiune.
+            path: /api/v1/houses/2/battery
+    NotFound:
+      description: Nu există
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+          example:
+            timestamp: '2026-10-20T10:00:00'
+            status: 404
+            error: NOT_FOUND
+            message: House not found
+            path: /api/v1/houses/77
+    Conflict:
+      description: Încalcă o regulă (unicitate, istoric, status)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiErrorResponse' }
+          example:
+            timestamp: '2026-10-20T10:00:00'
+            status: 409
+            error: CONFLICT
+            message: House already exists
+            path: /api/v1/houses
+
+  schemas:
+    ApiErrorResponse:
+      type: object
+      description: |
+        Forma erorilor din `SecurityAccessDeniedHandler` și `JWTAuthentificationEntryPoint`.
+        Azi `GlobalExceptionHandler` trimite doar câmpul `error`, care e `null` → corp gol; ținta e obiectul întreg.
+      required: [timestamp, status, error, message, path]
+      properties:
+        timestamp: { type: string, example: '2026-10-20T10:00:00' }
+        status: { type: integer, example: 404 }
+        error: { type: string, example: NOT_FOUND }
+        message: { type: string, example: House not found }
+        path: { type: string, example: /api/v1/houses/77 }
+
+    UserType:
+      type: string
+      enum: [ADMIN, OPERATOR, USER, AGENT]
+
+    UserPermissions:
+      type: string
+      description: |
+        Rezultă din `userType`. Azi enum-ul are doar primele 6 (cu `BATTERY_MANAGE`, pe care nu-l cere nimeni);
+        restul le cer feature-urile 1 și 4–7.
+      enum:
+        - HOUSE_VIEW
+        - HOUSE_MANAGE
+        - BATTERY_VIEW
+        - BATTERY_CONFIG
+        - BATTERY_COMMAND
+        - TELEMETRY_VIEW
+        - COMMUNITY_VIEW
+        - FINANCIAL_VIEW
+        - GRID_VIEW
+        - SIMULATION_CONTROL
+        - AGENT_VIEW
+        - AGENT_OPERATE
+        - USER_MANAGE
+
+    BatteryAction:
+      type: string
+      enum: [CHARGE, DISCHARGE, IDLE]
+
+    AuthReqisterRequest:
+      type: object
+      required: [firstName, lastName, email, password, age]
+      properties:
+        userType:
+          $ref: '#/components/schemas/UserType'
+          deprecated: true
+          description: Azi obligatoriu, deci oricine se poate înregistra ADMIN. Iese din cerere; înregistrarea face doar USER.
+        firstName: { type: string, minLength: 1, maxLength: 100, example: Ana }
+        lastName: { type: string, minLength: 1, maxLength: 100, example: Pop }
+        email: { type: string, format: email, maxLength: 100, example: ana@example.com }
+        password: { type: string, minLength: 8, maxLength: 50, description: 'Azi minim 3.', example: parola123 }
+        age: { type: integer, minimum: 18, example: 34 }
+
+    AuthLoginrequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, minLength: 3, maxLength: 100, example: ana@example.com }
+        password: { type: string, minLength: 3, maxLength: 50, example: parola123 }
+
+    UserRequest:
+      type: object
+      required: [email, password, firstName, lastName, age, userType]
+      properties:
+        email: { type: string, format: email, maxLength: 100, example: op@example.com }
+        password: { type: string, minLength: 8, maxLength: 50, example: parola123 }
+        firstName: { type: string, minLength: 1, maxLength: 100, example: Ion }
+        lastName: { type: string, minLength: 1, maxLength: 100, example: Popa }
+        age: { type: integer, minimum: 18, example: 40 }
+        userType:
+          type: string
+          enum: [OPERATOR, USER]
+          description: Câmp nou; azi lipsește, iar `addUser` nu salvează nici parola, nici tipul.
+
+    UserResponse:
+      type: object
+      required: [id, firstName, lastName, email, userType, permissions]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        firstName: { type: string, example: Ana }
+        lastName: { type: string, example: Pop }
+        email: { type: string, example: ana@example.com }
+        userType: { $ref: '#/components/schemas/UserType' }
+        permissions:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/UserPermissions' }
+        now:
+          type: string
+          example: '2026-10-20T10:00:00'
+          description: Momentul răspunsului (`LocalDateTime.now()`), nu data creării contului.
+        token:
+          type: [string, 'null']
+          description: Completat doar la `login`.
+          example: eyJhbGciOiJIUzUxMiJ9...
+
+    HouseRequest:
+      type: object
+      required: [name, pvPeakPowerKw, maxImportPowerKw, maxExportPowerKw, ownerId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100, example: Casa 1 }
+        pvPeakPowerKw: { type: number, exclusiveMinimum: 0, example: 6.5 }
+        maxImportPowerKw: { type: number, exclusiveMinimum: 0, example: 10 }
+        maxExportPowerKw: { type: number, exclusiveMinimum: 0, example: 8 }
+        ownerId: { type: integer, format: int64, example: 2 }
+
+    HousePatch:
+      type: object
+      description: Același `HouseRequest`, fără câmpuri obligatorii; `enabled` e nou (scoate casa din simulare).
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        pvPeakPowerKw: { type: number, exclusiveMinimum: 0 }
+        maxImportPowerKw: { type: number, exclusiveMinimum: 0 }
+        maxExportPowerKw: { type: number, exclusiveMinimum: 0 }
+        ownerId: { type: integer, format: int64 }
+        enabled: { type: boolean }
+
+    HouseResponse:
+      type: object
+      required: [id, name, pvPeakPowerKw, maxImportPowerKw, maxExportPowerKw, enabled, ownerId]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        name: { type: string, example: Casa 1 }
+        pvPeakPowerKw: { type: number, example: 6.5 }
+        maxImportPowerKw: { type: number, example: 10 }
+        maxExportPowerKw: { type: number, example: 8 }
+        enabled: { type: boolean, example: true }
+        ownerId: { type: integer, format: int64, example: 2 }
+
+    BatteryResponse:
+      type: object
+      required: [id, socPercent, maxChargePowerKw, maxDischargePowerKw, efficiencyPercent, houseId]
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        capacityKwh: { type: number, description: Câmp nou; azi constanta 10.0 din cod., example: 10 }
+        socPercent: { type: number, minimum: 10, maximum: 90, example: 50 }
+        maxChargePowerKw: { type: number, example: 3 }
+        maxDischargePowerKw: { type: number, example: 3 }
+        efficiencyPercent: { type: number, example: 95 }
+        houseId: { type: integer, format: int64, example: 1 }
+
+    BatteryConfigurationRequest:
+      type: object
+      required: [maxChargePowerKw, maxDischargePowerKw]
+      properties:
+        maxChargePowerKw: { type: number, exclusiveMinimum: 0, example: 4.5 }
+        maxDischargePowerKw: { type: number, exclusiveMinimum: 0, example: 4 }
+
+    BatteryCommandRequest:
+      type: object
+      required: [commandType, powerKw]
+      properties:
+        commandType: { $ref: '#/components/schemas/BatteryAction' }
+        powerKw:
+          type: number
+          exclusiveMinimum: 0
+          example: 2
+          description: Câmp nou; limita reală o dă bateria, prin validator.
+        targetSoc:
+          type: integer
+          deprecated: true
+          description: Azi procentul ăsta intră în motor ca putere în kW. Iese, înlocuit de `powerKw`.
+        houseId:
+          type: integer
+          format: int64
+          deprecated: true
+          description: Casa e deja în cale. Iese.
+
+    CommandExecutionResponse:
+      type: object
+      required: [id, houseId, commandType, powerKw, status, socAfterPercent, executedBy, createdAt]
+      properties:
+        id: { type: integer, format: int64, example: 12 }
+        houseId: { type: integer, format: int64, example: 1 }
+        commandType: { $ref: '#/components/schemas/BatteryAction' }
+        powerKw: { type: number, example: 2, description: 'Azi `targetSoc`.' }
+        status: { type: string, enum: [SUCCESS, REJECTED], example: SUCCESS }
+        failureReason:
+          type: [string, 'null']
+          enum: [BATTERY_POWER_LIMIT, BATTERY_SOC_LIMIT, null]
+          description: Câmp nou; completat la `REJECTED`.
+        socAfterPercent: { type: number, example: 69, description: Câmp nou. }
+        agentDecisionId: { type: [integer, 'null'], format: int64, description: 'Câmp nou (F7); gol la comenzile manuale.' }
+        executedBy: { type: string, example: ana@example.com }
+        createdAt: { type: string, example: '2026-10-20T10:00:00' }
+
+    HouseTelemetryPageResponse:
+      type: object
+      description: Un rând de telemetrie. În cod numele spune „page”, dar câmpurile sunt ale unui singur rând.
+      required: [id, houseId, recordedAt, pvPowerKw, loadPowerKw, gridPowerKw, batterySocPercent, batteryPowerKw]
+      properties:
+        id: { type: integer, format: int64, example: 501 }
+        houseId: { type: integer, format: int64, example: 1 }
+        recordedAt: { type: string, example: '2026-10-20T13:00:00', description: 'Ora virtuală a tick-ului; în DTO-ul de azi `localDateTime`.' }
+        pvPowerKw: { type: number, example: 5.8 }
+        loadPowerKw: { type: number, example: 1.2 }
+        gridPowerKw: { type: number, example: 4.6, description: '> 0 export, < 0 import' }
+        batterySocPercent: { type: number, example: 50 }
+        batteryPowerKw: { type: number, example: 0, description: '> 0 descărcare, < 0 încărcare' }
+        pricePerKwh: { type: number, example: 0.72, description: Câmp nou. }
+
+    ComunityStateResponse:
+      type: object
+      required: [totalHouses, totalPvPowerKw, totalLoadPowerKw, totalGridPowerKw, averageBatterySocPercent, simulationStatus, currentTick]
+      properties:
+        totalHouses: { type: integer, example: 10 }
+        totalPvPowerKw: { type: number, example: 48.3 }
+        totalLoadPowerKw: { type: number, example: 21.7 }
+        totalGridPowerKw: { type: number, example: 26.6 }
+        averageBatterySocPercent: { type: number, example: 52.4 }
+        simulationStatus: { type: string, enum: [RUNNING, PAUSED], example: PAUSED }
+        currentTick: { type: integer, format: int64, example: 13 }
+
+    SimulationTickResponse:
+      type: object
+      required: [tick, simulationTime, telemetryRows]
+      properties:
+        tick: { type: integer, format: int64, example: 13 }
+        simulationTime: { type: string, example: '2026-10-20T13:00:00' }
+        telemetryRows: { type: integer, example: 10 }
+
+    SimulationStateResponse:
+      type: object
+      required: [status, currentTick, simulationTime]
+      properties:
+        status: { type: string, enum: [RUNNING, PAUSED], example: RUNNING }
+        currentTick: { type: integer, format: int64, example: 13 }
+        simulationTime: { type: string, example: '2026-10-20T13:00:00' }
+
+    SimulationControlRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [START, PAUSE] }
+
+    FinancialtransactionResponseToDto:
+      type: object
+      required: [id, recordedAt, houseId, transactionType, amountKwh, unitPrice, totalValue]
+      properties:
+        id: { type: integer, format: int64, example: 90 }
+        recordedAt: { type: string, example: '2026-10-20T19:00:00', description: 'În DTO-ul de azi `timestamp`.' }
+        houseId: { type: integer, format: int64, example: 1 }
+        transactionType: { type: string, enum: [BUY, SELL], example: BUY }
+        amountKwh: { type: number, example: 2.4 }
+        unitPrice: { type: number, example: 0.95, description: 'lei/kWh; în cod devine `BigDecimal`' }
+        totalValue: { type: number, example: 2.28, description: 'amountKwh × unitPrice; în cod devine `BigDecimal`' }
+
+    GridStateResponse:
+      type: object
+      required: [recordedAt, totalImportKw, totalExportKw, limitKw, overloadKw, status]
+      properties:
+        recordedAt: { type: string, example: '2026-10-20T19:00:00' }
+        totalImportKw: { type: number, example: 47 }
+        totalExportKw: { type: number, example: 0 }
+        limitKw: { type: number, example: 45 }
+        overloadKw: { type: number, example: 2 }
+        status: { type: string, enum: [OK, WARNING, CRITICAL], example: WARNING }
+
+    AgentDecisionResponse:
+      type: object
+      required: [id, houseId, action, powerKw, reason, valid]
+      properties:
+        id: { type: integer, format: int64, example: 301 }
+        houseId: { type: integer, format: int64, example: 4 }
+        action: { $ref: '#/components/schemas/BatteryAction' }
+        powerKw: { type: number, example: 2.5 }
+        reason: { type: string, example: 'transformator peste limita, import 47 kW' }
+        valid: { type: boolean, example: true }
+        rejectionReason:
+          type: [string, 'null']
+          enum: [BATTERY_POWER_LIMIT, BATTERY_SOC_LIMIT, null]
+
+    AgentRunResponse:
+      type: object
+      required: [id, mode, triggerType, status, createdAt, gridStatus, decisions]
+      properties:
+        id: { type: integer, format: int64, example: 7 }
+        mode: { type: string, enum: [ADVISORY, SUPERVISED, AUTONOMOUS], example: ADVISORY }
+        triggerType: { type: string, enum: [MANUAL, SCHEDULED], example: MANUAL }
+        status: { type: string, enum: [PROPOSED, APPROVED, REJECTED], example: PROPOSED }
+        createdAt: { type: string, example: '2026-10-20T19:00:05' }
+        decidedBy: { type: [string, 'null'], example: null }
+        decidedAt: { type: [string, 'null'], example: null }
+        gridStatus: { type: string, enum: [OK, WARNING, CRITICAL], example: WARNING }
+        decisions:
+          type: array
+          items: { $ref: '#/components/schemas/AgentDecisionResponse' }
