@@ -6,10 +6,8 @@ import ro.mycode.solarsyncbroker.battery.model.Battery;
 import java.util.List;
 
 public interface BatteryCommandService {
-    BatteryResponse updateConfiguration(Long houseId, BatteryConfigurationRequest request);
-    Battery  applyCommand(Battery battery, BatteryCommand command, double deltaHours);
+    BatteryResponse updateConfiguration(Long houseId, BatteryConfigurationRequest request, String username);
+    Battery applyCommand(Battery battery, BatteryCommand command, double deltaHours);
     CommandExecutionResponse executeCommand(Long houseId, BatteryCommandRequest request, String username);
-    List<CommandExecutionResponse> getCommandsForHouse(Long houseId,String username);
-
-
+    List<CommandExecutionResponse> getCommandsForHouse(Long houseId, String username);
 }

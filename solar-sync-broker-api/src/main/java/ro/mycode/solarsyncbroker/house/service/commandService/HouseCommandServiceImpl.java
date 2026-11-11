@@ -2,6 +2,7 @@ package ro.mycode.solarsyncbroker.house.service.commandService;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ro.mycode.solarsyncbroker.battery.model.Battery;
 import ro.mycode.solarsyncbroker.house.dtos.HouseRequest;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
@@ -13,7 +14,7 @@ import ro.mycode.solarsyncbroker.users.exceptions.UserNotFoundException;
 import ro.mycode.solarsyncbroker.users.model.User;
 import ro.mycode.solarsyncbroker.users.repository.UserRepository;
 
-@Service // Schimbat din @Component în @Service
+@Service
 public class HouseCommandServiceImpl implements HouseCommandService {
 
     private final HouseRepository houseRepository;
@@ -34,6 +35,13 @@ public class HouseCommandServiceImpl implements HouseCommandService {
         User owner = userRepository.findById(houseRequest.ownerId())
                 .orElseThrow(() -> new UserNotFoundException());
 
+        Battery battery = Battery.builder()
+                .socPercent(50.0)
+                .maxChargePowerKw(3.0)
+                .maxDischargePowerKw(3.0)
+                .efficientyPercent(0.95)
+                .build();
+
         House house = House.builder()
                 .name(houseRequest.name())
                 .pvPeakPowerKw(houseRequest.pvPeakPowerKw())
@@ -50,8 +58,6 @@ public class HouseCommandServiceImpl implements HouseCommandService {
     @Transactional
     public HouseResponse updateHouse(Long id, HouseRequest houseRequest) {
         House house = houseRepository.findById(id).orElseThrow(HouseNotFoundException::new);
-
-        // În caz că se schimbă și owner-ul la un update total
         User owner = userRepository.findById(houseRequest.ownerId())
                 .orElseThrow(() -> new UserNotFoundException());
 

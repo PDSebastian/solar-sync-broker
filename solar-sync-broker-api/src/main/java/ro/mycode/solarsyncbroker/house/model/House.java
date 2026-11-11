@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.*;
+import ro.mycode.solarsyncbroker.battery.model.Battery;
 import ro.mycode.solarsyncbroker.users.model.User;
 
 import java.util.Objects;
@@ -34,6 +35,10 @@ public class House {
 
     @NotNull
     private Double maxExportPowerKw;
+
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "battery_id", referencedColumnName = "id")
+    private Battery battery;
 
     @Builder.Default
     private boolean enabled = true;

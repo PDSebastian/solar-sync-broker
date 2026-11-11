@@ -26,8 +26,9 @@ public class HouseQueryServiceImpl implements HouseQueryService {
 
     @Override
     public List<HouseResponse> getAllHouses() {
-        List<House> h = houseRepository.findAll();
-        return h.stream().map(HouseMapper::houseToHouseResponse).toList();
+        return houseRepository.findAll().stream()
+                .map(HouseMapper::houseToHouseResponse)
+                .toList();
     }
 
     @Override
@@ -47,4 +48,20 @@ public class HouseQueryServiceImpl implements HouseQueryService {
 
         return HouseMapper.houseToHouseResponse(h);
     }
+
+    public void checkHouseAccess(String email, Long houseId) {
+        User user = userRepository.findByEmail(email).orElseThrow(HouseAccessDeniedHandler::new);
+
+        if (user.getUserType() == UserType.ADMIN || user.getUserType() == UserType.OPERATOR) {
+            return;
+        }
+
+        boolean isOwner = houseRepository.existsByIdAndOwner_Email(houseId, email);
+        if (!isOwner) {
+            throw new HouseAccessDeniedHandler();
+        }
+    }
+
+
+
 }

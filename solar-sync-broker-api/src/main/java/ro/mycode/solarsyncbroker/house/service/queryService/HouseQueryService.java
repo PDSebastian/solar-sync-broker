@@ -8,6 +8,7 @@ public interface HouseQueryService {
     List<HouseResponse> getAllHouses();
     HouseResponse getHouseById(Long id);
     HouseResponse getHouseForCaller(Long id,String email);
+    public void checkHouseAccess(String email, Long houseId);
 
 
 
