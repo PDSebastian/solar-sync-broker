@@ -3,6 +3,9 @@ info:
   title: solar-sync-broker API
   version: 1.0.0
   description: |
+    Contractul acoperă DOAR `solar-sync-broker-api` (monolitul). Arhitectura e pe microservicii: fiecare serviciu primește
+    contractul lui OpenAPI când apare în plan. `solar-sync-broker-agent` (F9–F10) nu expune REST: vorbește doar prin MCP; serviciile desprinse ulterior primesc contractul lor când apar.
+
     Comunitate de case cu panouri și baterii, cu un agent care propune comenzi validate determinist.
 
     Căile, metodele și `operationId`-urile sunt cele din controllerele de la `ab630df`.
