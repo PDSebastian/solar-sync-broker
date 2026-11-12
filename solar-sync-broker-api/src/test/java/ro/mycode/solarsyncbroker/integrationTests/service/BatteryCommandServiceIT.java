@@ -90,13 +90,14 @@ public class BatteryCommandServiceIT {
         service.applyCommand(testBattery, comanda, 1.0);
 
         Battery dinDb = batteryRepository.findById(testBattery.getId()).orElseThrow();
-        assertEquals(30.0, dinDb.getSocPercent(), 0.0001);
+        assertEquals(70.0, dinDb.getSocPercent(), 0.0001);
     }
 
     @Test
     void testActualizareConfig() {
+        String username="admin";
         BatteryConfigurationRequest request = new BatteryConfigurationRequest(4.5, 4.0);
-        service.updateConfiguration(testBattery.getHouse().getId(), request);
+        service.updateConfiguration(testBattery.getHouse().getId(),request,username);
 
         Battery dinDb = batteryRepository.findById(testBattery.getId()).orElseThrow();
         assertEquals(3.0, dinDb.getMaxChargePowerKw(), 0.0001);

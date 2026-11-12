@@ -39,8 +39,8 @@ public class BatteryController {
 
     @PatchMapping("/{houseId}/battery/configuration")
     @PreAuthorize("hasAuthority('BATTERY_CONFIG')")
-    public ResponseEntity<BatteryResponse> updateConfiguration(@PathVariable Long houseId, @Valid @RequestBody BatteryConfigurationRequest request) {
-        BatteryResponse response = batteryCommandService.updateConfiguration(houseId, request);
+    public ResponseEntity<BatteryResponse> updateConfiguration(@PathVariable Long houseId, @Valid @RequestBody BatteryConfigurationRequest request, Principal principal) {
+        BatteryResponse response = batteryCommandService.updateConfiguration(houseId, request,principal.getName());
         return ResponseEntity.ok(response);
     }
 

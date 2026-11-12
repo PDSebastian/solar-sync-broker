@@ -11,12 +11,13 @@ public class CommandExecutionMapper {
         }
         return new CommandExecutionResponse(
                 entity.getId(),
-                entity.getHouseId(),
+                entity.getHouse() != null? entity.getHouse().getId():null,
                 entity.getCommandType(),
-                entity.getTargetSoc(),
+                entity.getSocAfterPercent()!= null? entity.getSocAfterPercent().intValue():null,
                 entity.getStatus(),
                 entity.getExecutedBy(),
                 entity.getCreatedAt()
+
         );
     }
 }

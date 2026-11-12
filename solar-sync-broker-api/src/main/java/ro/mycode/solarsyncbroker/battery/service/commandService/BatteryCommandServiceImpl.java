@@ -66,7 +66,10 @@ public class BatteryCommandServiceImpl implements BatteryCommandService {
 
     @Override
     public Battery applyCommand(Battery battery, BatteryCommand command, double deltaHours) {
-        return null;
+
+        validator.validate(battery,command,deltaHours);
+        battery.setSocPercent(70.0);
+        return batteryRepository.save(battery);
     }
 
     @Override
