@@ -17,7 +17,7 @@ services:
     restart: unless-stopped
 
   solar-sync-app:
-    image: sebi123q/solarsyncbroker-app:sha-91a42ae
+    image: sebi123q/solarsyncbroker-app:sha-ad16c24
     container_name: solar_sync_app
     ports:
       - "8082:8081"
