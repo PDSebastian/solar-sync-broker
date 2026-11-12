@@ -3,15 +3,14 @@ info:
   title: solar-sync-broker API
   version: 1.0.0
   description: |
-    Contractul acoperă DOAR `solar-sync-broker-api` (monolitul). Arhitectura e pe microservicii: fiecare serviciu primește
-    contractul lui OpenAPI când apare în plan. `solar-sync-broker-agent` (F9–F10) nu expune REST: vorbește doar prin MCP; serviciile desprinse ulterior primesc contractul lor când apar.
-
     Comunitate de case cu panouri și baterii, cu un agent care propune comenzi validate determinist.
 
     Căile, metodele și `operationId`-urile sunt cele din controllerele de la `ab630df`.
     Unde codul de azi se abate de la convenția `/api/v1/<substantiv-la-plural>`, operația e marcată
     `deprecated` și descrierea spune calea țintă. Operațiile cu „Planificat” nu există încă în cod.
     Schemele poartă numele claselor DTO din cod, ca să le găsești ușor.
+
+    Sursa e PLAN.pdf: căile țintă sunt operații reale, iar cele vechi sunt marcate `deprecated`, cu sufixul `Legacy` la `operationId`.
 
     Orele: `2026-10-20T10:00:00`, fără fus orar. Puterea în kW, energia în kWh, SoC în procente, banii în lei.
     Erorile au forma `ApiErrorResponse`.
@@ -83,7 +82,7 @@ paths:
     get:
       tags: [auth]
       summary: Utilizatorul din token
-      description: Planificat — F1.3.
+      description: Planificat — F1.
       operationId: getCurrentUser
       responses:
         '200':
@@ -93,15 +92,37 @@ paths:
               schema: { $ref: '#/components/schemas/UserResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /api/v1/users:
+    post:
+      tags: [users]
+      summary: Administratorul creează un cont OPERATOR, USER sau AGENT (USER_MANAGE)
+      description: Planificat — F1. Salvează parola (codată), vârsta și tipul; răspunde 201 cu corp.
+      operationId: addUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserRequest' }
+      responses:
+        '201':
+          description: Cont creat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /api/v1/user/add:
     post:
       tags: [users]
-      summary: Administratorul creează un cont OPERATOR sau USER
+      summary: Calea veche — administratorul creează un cont
       description: |
-        Inconsecvență: `/api/v1/user` la singular și verbul `add` în cale. Calea țintă: `POST /api/v1/users`.
+        Inconsecvență: `/api/v1/user` la singular și verbul `add` în cale. Calea țintă: `POST /api/v1/users` (F1).
         Azi cere `hasAuthority('ADMIN')`, dar `ADMIN` e tip de cont, nu permisiune → 403 pentru oricine.
         Țintă: `USER_MANAGE`, iar răspunsul 201 vine cu corp.
-      operationId: addUser
+      operationId: addUserLegacy
       deprecated: true
       requestBody:
         required: true
@@ -310,7 +331,7 @@ paths:
     post:
       tags: [simulation]
       summary: Rulează un tick pentru toate casele active (SIMULATION_CONTROL)
-      description: Planificat — F4.2. Scrie câte un rând de telemetrie pe casă, tranzacțiile (F5.1) și starea rețelei (F6.1).
+      description: Planificat — F4. Scrie câte un rând de telemetrie pe casă (F4), tranzacțiile (F5) și starea rețelei (F8).
       operationId: runSimulationTick
       responses:
         '201':
@@ -327,7 +348,7 @@ paths:
     get:
       tags: [simulation]
       summary: Ultimele 50 de măsurători ale casei (TELEMETRY_VIEW)
-      description: Planificat — F4.3. Cele mai noi primele.
+      description: Planificat — F4. Cele mai noi primele.
       operationId: getHouseTelemetry
       responses:
         '200':
@@ -346,7 +367,7 @@ paths:
     get:
       tags: [simulation]
       summary: Starea comunității după ultimul tick (COMMUNITY_VIEW)
-      description: Planificat — F4.4.
+      description: Planificat — F4.
       operationId: getCommunityState
       responses:
         '200':
@@ -354,6 +375,43 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ComunityStateResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/houses/{houseId}/financial-summary:
+    parameters:
+      - $ref: '#/components/parameters/HouseId'
+    get:
+      tags: [financial]
+      summary: Tranzacțiile unei case (FINANCIAL_VIEW)
+      description: Planificat — F5. Proprietarul doar la casa lui (403 altfel); ADMIN și OPERATOR la orice casă. Cele mai noi primele.
+      operationId: getHouseFinancialSummary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FinancialtransactionResponseToDto' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/community/financial-summary:
+    get:
+      tags: [financial]
+      summary: Tranzacțiile întregii comunități (COMMUNITY_VIEW)
+      description: Planificat — F5. Doar OPERATOR și ADMIN. Cele mai noi primele.
+      operationId: getCommunityFinancialSummary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/FinancialtransactionResponseToDto' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
@@ -366,8 +424,8 @@ paths:
       description: |
         Inconsecvență: `FinancialController` are `@RequestMapping("/houses")`, fără `/api/v1`.
         Calea țintă: `GET /api/v1/houses/{houseId}/financial-summary`, cu verificarea de proprietar.
-        Azi `FINANCIAL_VIEW` nu există în `UserPermissions` → 403 cu orice token real.
-      operationId: getHouseFinancialSummary
+        Azi `FINANCIAL_VIEW` există în `UserPermissions`, dar nimeni nu o primește (harta veche) → 403 cu orice token real.
+      operationId: getHouseFinancialSummaryLegacy
       deprecated: true
       responses:
         '200':
@@ -386,10 +444,10 @@ paths:
       tags: [financial]
       summary: Tranzacțiile întregii comunități (COMMUNITY_VIEW)
       description: |
-        Inconsecvență: fără `/api/v1`, iar `community` stă pe locul unui id de casă.
+        Inconsecvență: fără `/api/v1`, iar `community` stă pe locul unui id de casă (rutarea merge, dar e în conflict ca nume).
         Calea țintă: `GET /api/v1/community/financial-summary`.
         Azi `COMMUNITY_VIEW` nu există în `UserPermissions` → 403 cu orice token real.
-      operationId: getCommunityFinancialSummary
+      operationId: getCommunityFinancialSummaryLegacy
       deprecated: true
       responses:
         '200':
@@ -406,7 +464,7 @@ paths:
     get:
       tags: [grid]
       summary: Starea transformatorului la ultimul tick (GRID_VIEW)
-      description: Planificat — F6.2.
+      description: Planificat — F8.
       operationId: getGridState
       responses:
         '200':
@@ -426,7 +484,7 @@ paths:
     get:
       tags: [agent]
       summary: Rulările agentului, cele mai noi primele (AGENT_VIEW)
-      description: Planificat — F7.2.
+      description: Planificat — F10.
       operationId: getAgentRuns
       responses:
         '200':
@@ -438,20 +496,6 @@ paths:
                 items: { $ref: '#/components/schemas/AgentRunResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
-    post:
-      tags: [agent]
-      summary: Pornește o rulare a agentului (AGENT_OPERATE)
-      description: Planificat — F7.1. Deciziile se validează și se salvează; în `ADVISORY` nu se execută.
-      operationId: runAgent
-      responses:
-        '201':
-          description: Rulare creată, cu deciziile ei
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/AgentRunResponse' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '409': { $ref: '#/components/responses/Conflict' }
 
   /api/v1/agent/runs/{runId}:
     parameters:
@@ -459,7 +503,7 @@ paths:
     get:
       tags: [agent]
       summary: O rulare, cu toate deciziile ei (AGENT_VIEW)
-      description: Planificat — F7.2.
+      description: Planificat — F10.
       operationId: getAgentRun
       responses:
         '200':
@@ -476,12 +520,12 @@ paths:
       - $ref: '#/components/parameters/RunId'
     post:
       tags: [agent]
-      summary: Aprobă rularea; deciziile valide devin comenzi (AGENT_OPERATE)
-      description: Planificat — F7.3. Doar din `PROPOSED`, altfel 409.
+      summary: Aprobă rularea; deciziile valide devin comenzi (AGENT_APPROVE)
+      description: Planificat — F10. Doar din `PROPOSED`, altfel 409.
       operationId: approveAgentRun
       responses:
         '200':
-          description: Aprobată
+          description: Aprobată, deciziile valide s-au executat (`EXECUTED`)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AgentRunResponse' }
@@ -495,8 +539,8 @@ paths:
       - $ref: '#/components/parameters/RunId'
     post:
       tags: [agent]
-      summary: Respinge rularea; nicio baterie nu se schimbă (AGENT_OPERATE)
-      description: Planificat — F7.3. Doar din `PROPOSED`, altfel 409.
+      summary: Respinge rularea; nicio baterie nu se schimbă (AGENT_APPROVE)
+      description: Planificat — F10. Doar din `PROPOSED`, altfel 409. Agentul propune prin MCP (`proposePlan`), nu prin REST.
       operationId: rejectAgentRun
       responses:
         '200':
@@ -513,7 +557,7 @@ paths:
     get:
       tags: [simulation]
       summary: Simularea rulează sau e pe pauză (SIMULATION_CONTROL)
-      description: Planificat, opțional — F8.2.
+      description: Opțional, în afara planului (tick automat, după o lecție despre programarea periodică).
       operationId: getSimulationState
       responses:
         '200':
@@ -528,7 +572,7 @@ paths:
     post:
       tags: [simulation]
       summary: Pornește sau pune pe pauză tick-ul automat (SIMULATION_CONTROL)
-      description: Planificat, opțional — F8.2.
+      description: Opțional, în afara planului (tick automat, după o lecție despre programarea periodică).
       operationId: controlSimulation
       requestBody:
         required: true
@@ -648,8 +692,8 @@ components:
     UserPermissions:
       type: string
       description: |
-        Rezultă din `userType`. Azi enum-ul are doar primele 6 (cu `BATTERY_MANAGE`, pe care nu-l cere nimeni);
-        restul le cer feature-urile 1 și 4–7.
+        Rezultă din `userType`, dintr-o singură hartă în cod (matricea din PLAN.pdf). Azi enum-ul are 10 valori
+        (`BATTERY_MANAGE` și `FINANCIAL_MANAGE` nu le cere nimeni și ies); celelalte 6 noi intră în F1.
       enum:
         - HOUSE_VIEW
         - HOUSE_MANAGE
@@ -657,12 +701,13 @@ components:
         - BATTERY_CONFIG
         - BATTERY_COMMAND
         - TELEMETRY_VIEW
-        - COMMUNITY_VIEW
         - FINANCIAL_VIEW
+        - COMMUNITY_VIEW
         - GRID_VIEW
         - SIMULATION_CONTROL
         - AGENT_VIEW
-        - AGENT_OPERATE
+        - AGENT_PROPOSE
+        - AGENT_APPROVE
         - USER_MANAGE
 
     BatteryAction:
@@ -701,8 +746,8 @@ components:
         age: { type: integer, minimum: 18, example: 40 }
         userType:
           type: string
-          enum: [OPERATOR, USER]
-          description: Câmp nou; azi lipsește, iar `addUser` nu salvează nici parola, nici tipul.
+          enum: [OPERATOR, USER, AGENT]
+          description: Câmp nou; azi lipsește, iar `addUser` nu salvează nici parola, nici tipul. `ADMIN` → 400 (adminul vine doar din `.env`).
 
     UserResponse:
       type: object
@@ -785,9 +830,9 @@ components:
         commandType: { $ref: '#/components/schemas/BatteryAction' }
         powerKw:
           type: number
-          exclusiveMinimum: 0
+          minimum: 0
           example: 2
-          description: Câmp nou; limita reală o dă bateria, prin validator.
+          description: Câmp nou; limita reală o dă bateria, prin validator. `CHARGE` / `DISCHARGE` cu 0 → 400; `IDLE` ignoră puterea.
         targetSoc:
           type: integer
           deprecated: true
@@ -812,7 +857,7 @@ components:
           enum: [BATTERY_POWER_LIMIT, BATTERY_SOC_LIMIT, null]
           description: Câmp nou; completat la `REJECTED`.
         socAfterPercent: { type: number, example: 69, description: Câmp nou. }
-        agentDecisionId: { type: [integer, 'null'], format: int64, description: 'Câmp nou (F7); gol la comenzile manuale.' }
+        agentDecisionId: { type: [integer, 'null'], format: int64, description: 'Câmp nou (F10); gol la comenzile manuale.' }
         executedBy: { type: string, example: ana@example.com }
         createdAt: { type: string, example: '2026-10-20T10:00:00' }
 
@@ -829,7 +874,7 @@ components:
         gridPowerKw: { type: number, example: 4.6, description: '> 0 export, < 0 import' }
         batterySocPercent: { type: number, example: 50 }
         batteryPowerKw: { type: number, example: 0, description: '> 0 descărcare, < 0 încărcare' }
-        pricePerKwh: { type: number, example: 0.72, description: Câmp nou. }
+        pricePerKwh: { type: number, example: 0.8000, description: 'Câmp nou; `BigDecimal`, 4 zecimale.' }
 
     ComunityStateResponse:
       type: object
@@ -874,8 +919,8 @@ components:
         houseId: { type: integer, format: int64, example: 1 }
         transactionType: { type: string, enum: [BUY, SELL], example: BUY }
         amountKwh: { type: number, example: 2.4 }
-        unitPrice: { type: number, example: 0.95, description: 'lei/kWh; în cod devine `BigDecimal`' }
-        totalValue: { type: number, example: 2.28, description: 'amountKwh × unitPrice; în cod devine `BigDecimal`' }
+        unitPrice: { type: number, example: 0.8000, description: 'lei/kWh; în cod devine `BigDecimal`' }
+        totalValue: { type: number, example: 1.92, description: 'amountKwh × unitPrice; în cod devine `BigDecimal`' }
 
     GridStateResponse:
       type: object
@@ -908,8 +953,8 @@ components:
       properties:
         id: { type: integer, format: int64, example: 7 }
         mode: { type: string, enum: [ADVISORY, SUPERVISED, AUTONOMOUS], example: ADVISORY }
-        triggerType: { type: string, enum: [MANUAL, SCHEDULED], example: MANUAL }
-        status: { type: string, enum: [PROPOSED, APPROVED, REJECTED], example: PROPOSED }
+        triggerType: { type: string, enum: [MANUAL, SCHEDULED, EVENT], example: MANUAL, description: '`EVENT` apare în F13.' }
+        status: { type: string, enum: [PROPOSED, EXECUTED, REJECTED], example: PROPOSED }
         createdAt: { type: string, example: '2026-10-20T19:00:05' }
         decidedBy: { type: [string, 'null'], example: null }
         decidedAt: { type: [string, 'null'], example: null }
