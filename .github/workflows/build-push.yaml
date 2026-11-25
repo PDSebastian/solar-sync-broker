@@ -7,7 +7,6 @@ on:
       - solar-sync-broker-api/**
       - .github/workflows/build-push.yaml
   pull_request:
-    branches: [master]
     paths:
       - solar-sync-broker-api/**
       - .github/workflows/build-push.yaml
