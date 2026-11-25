@@ -30,13 +30,13 @@ public class HouseController {
 
 
     @GetMapping
-    @PreAuthorize("hasAuthority('house:view')")
+    @PreAuthorize("hasAuthority('HOUSE_VIEW')")
     public ResponseEntity<List<HouseResponse>> getAllHouses() {
         return ResponseEntity.ok(houseQueryService.getAllHouses());
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('house:view')")
+    @PreAuthorize("hasAuthority('HOUSE_VIEW')")
     public ResponseEntity<HouseResponse> getHouseById(@PathVariable Long id, Principal principal) {
         System.out.println(principal);
         return ResponseEntity.ok(houseQueryService.getHouseForCaller(id,principal.getName()));
@@ -44,26 +44,26 @@ public class HouseController {
 
 
     @PostMapping
-    @PreAuthorize("hasAuthority('house:manage')")
+    @PreAuthorize("hasAuthority('HOUSE_MANAGE')")
     public ResponseEntity<HouseResponse> createHouse(@Valid @RequestBody HouseRequest houseRequest) {
         HouseResponse houseResponse = houseCommandService.createHouse(houseRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(houseResponse);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAuthority('house:manage')")
+    @PreAuthorize("hasAuthority('HOUSE_MANAGE')")
     public ResponseEntity<HouseResponse> updateHouse(@PathVariable Long id, @Valid @RequestBody HouseRequest houseRequest) {
         return ResponseEntity.ok(houseCommandService.updateHouse(id, houseRequest));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("hasAuthority('house:manage')")
+    @PreAuthorize("hasAuthority('HOUSE_MANAGE')")
     public ResponseEntity<HouseResponse> patchHouse(@PathVariable Long id, @RequestBody HouseRequest houseRequest) {
         return ResponseEntity.ok(houseCommandService.patchHouse(id, houseRequest));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAuthority('house:manage')")
+    @PreAuthorize("hasAuthority('HOUSE_MANAGE')")
     public ResponseEntity<Void> deleteHouse(@PathVariable Long id) {
         houseCommandService.deleteHouse(id);
         return ResponseEntity.noContent().build();

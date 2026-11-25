@@ -37,7 +37,7 @@ jobs:
           cache-dependency-path: solar-sync-broker-api/pom.xml
 
       - name: Teste
-        run: mvn -B test
+        run: mvn -B verify
 
       - name: Slack
         if: ${{ !cancelled() }}
