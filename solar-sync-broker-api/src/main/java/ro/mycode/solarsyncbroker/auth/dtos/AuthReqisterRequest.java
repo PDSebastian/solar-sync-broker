@@ -5,12 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import ro.mycode.solarsyncbroker.users.model.UserType; // Corectat importul de la Hibernate la enum-ul tău real
 
 public record AuthReqisterRequest(
-        @NotNull(message = "Tipul utilizatorului este obligatoriu")
-        UserType userType,
-
         @NotBlank(message = "Numele este obligatoriu")
         String firstName,
 

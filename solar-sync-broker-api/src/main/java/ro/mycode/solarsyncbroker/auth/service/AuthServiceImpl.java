@@ -52,11 +52,10 @@ public class AuthServiceImpl implements AuthService {
                 .email(authReqisterRequest.email())
                 .password(passwordEncoder.encode(authReqisterRequest.password()))
                 .age(authReqisterRequest.age())
-                .userType(UserType.USER)
-                .userType(authReqisterRequest.userType())
+                .userType(UserType.USER) // register creeaza mereu USER; ADMIN vine doar din .env
                 .build();
 
-        user.setPermissions(permissionsForType(authReqisterRequest.userType()));
+        user.setPermissions(permissionsForType(UserType.USER));
         User savedUser = userRepository.save(user);
 
 
