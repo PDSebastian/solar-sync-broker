@@ -60,8 +60,16 @@ public class BatteryCommandServiceImpl implements BatteryCommandService {
 
 
     @Override
+    @Transactional
     public BatteryResponse updateConfiguration(Long houseId, BatteryConfigurationRequest request, String username) {
-        return null;
+        User user = userRepository.findByEmail(username).orElseThrow(UserNotFoundException::new);
+        Battery battery = batteryRepository.findBatteryByHouseId(houseId).orElseThrow(HouseNotFoundException::new);
+        validateHouseAccess(user, battery.getHouse());
+
+        battery.setMaxChargePowerKw(request.maxChargePowerKw());
+        battery.setMaxDischargePowerKw(request.maxDischargePowerKw());
+
+        return BatteryMapper.batterytoBatteryResponse(batteryRepository.save(battery));
     }
 
     @Override
