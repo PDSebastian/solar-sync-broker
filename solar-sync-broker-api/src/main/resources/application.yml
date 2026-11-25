@@ -2,12 +2,12 @@ spring:
   application:
     name: solar-sync-broker-api
   datasource:
-    url: jdbc:mysql://localhost:3307/solarsyncbroker_db
+    url: jdbc:mysql://localhost:3307/solarsyncbroker_db?createDatabaseIfNotExist=true
     username: root
     password: root
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
     show-sql: true
     properties:
@@ -15,6 +15,10 @@ spring:
         format_sql: true
   flyway:
     enabled: true
+    # Bazele vechi au fost create de Hibernate (ddl-auto: update), deci nu au flyway_schema_history.
+    # Fara asta Flyway refuza sa porneasca ("Found non-empty schema(s) ... no schema history table").
+    # Pe o baza goala ruleaza migratiile normal; pe una existenta o marcheaza la versiunea de baza (1).
+    baseline-on-migrate: true
 
 logging:
   level:
