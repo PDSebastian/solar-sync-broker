@@ -10,7 +10,7 @@ import ro.mycode.solarsyncbroker.battery.mapper.CommandExecutionMapper;
 import ro.mycode.solarsyncbroker.battery.model.Battery;
 import ro.mycode.solarsyncbroker.battery.repository.BatteryRepository;
 import ro.mycode.solarsyncbroker.battery.repository.CommandExecutionRepository;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedHandler;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.model.House;
 import ro.mycode.solarsyncbroker.house.repository.HouseRepository;
@@ -53,7 +53,7 @@ public class BatteryCommandServiceImpl implements BatteryCommandService {
         }
         boolean isOwner = houseRepository.existsByIdAndOwner_Email(house.getId(), user.getEmail());
         if (!isOwner) {
-            throw new HouseAccessDeniedHandler();
+            throw new HouseAccessDeniedException();
         }
 
     }

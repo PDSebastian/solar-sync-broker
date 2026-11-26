@@ -10,7 +10,7 @@ import ro.mycode.solarsyncbroker.auth.dtos.AuthReqisterRequest;
 import ro.mycode.solarsyncbroker.system.security.JWTTokenProvider;
 import ro.mycode.solarsyncbroker.system.security.UserPermissions;
 import ro.mycode.solarsyncbroker.users.dtos.UserResponse;
-import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyexistsException;
+import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyExistsException;
 import ro.mycode.solarsyncbroker.users.exceptions.UserNotFoundException;
 import ro.mycode.solarsyncbroker.users.model.User;
 import ro.mycode.solarsyncbroker.users.model.UserType;
@@ -43,7 +43,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public UserResponse register(AuthReqisterRequest authReqisterRequest) {
         if (userRepository.findByEmail(authReqisterRequest.email()).isPresent()) {
-            throw new UserAlreadyexistsException();
+            throw new UserAlreadyExistsException();
         }
 
         User user = User.builder()

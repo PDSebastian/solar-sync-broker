@@ -7,7 +7,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mycode.solarsyncbroker.house.dtos.HouseRequest;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.model.House;
 import ro.mycode.solarsyncbroker.house.repository.HouseRepository;
@@ -74,7 +74,7 @@ class HouseCommandServiceIT {
 
         HouseRequest request = new HouseRequest("Casa 2", 6.0, 12.0, 5.0, owner.getId());
 
-        assertThrows(HouseAlreadyExistsExcption.class, () -> houseCommandService.createHouse(request));
+        assertThrows(HouseAlreadyExistsException.class, () -> houseCommandService.createHouse(request));
     }
 
     @Test

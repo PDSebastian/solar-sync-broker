@@ -7,7 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import ro.mycode.solarsyncbroker.house.dtos.HouseRequest;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.model.House;
 import ro.mycode.solarsyncbroker.house.repository.HouseRepository;
@@ -73,7 +73,7 @@ class HouseCommandServiceTests {
 
         when(houseRepository.existsByName(houseName)).thenReturn(true);
 
-        assertThrows(HouseAlreadyExistsExcption.class, () -> houseCommandService.createHouse(request));
+        assertThrows(HouseAlreadyExistsException.class, () -> houseCommandService.createHouse(request));
     }
 
     @Test

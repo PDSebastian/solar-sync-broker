@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mycode.solarsyncbroker.users.dtos.UserRequest;
 import ro.mycode.solarsyncbroker.users.dtos.UserResponse;
-import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyexistsException;
+import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyExistsException;
 import ro.mycode.solarsyncbroker.users.mapper.UserMapper;
 import ro.mycode.solarsyncbroker.users.model.User;
 import ro.mycode.solarsyncbroker.users.repository.UserRepository;
@@ -20,7 +20,7 @@ public class UserCommandServiceImpl implements UserCommandService {
     @Transactional
     public UserResponse addUser(UserRequest userRequest) {
         if(userRepository.existsUserByEmail((userRequest.email()))){
-            throw new UserAlreadyexistsException();
+            throw new UserAlreadyExistsException();
         }
         User user = User.builder()
                 .firstName(userRequest.firstName())

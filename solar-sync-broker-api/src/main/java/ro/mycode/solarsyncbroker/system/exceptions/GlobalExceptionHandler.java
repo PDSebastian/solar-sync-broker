@@ -7,10 +7,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ro.mycode.solarsyncbroker.battery.exceptions.AccessDeniedExceptions;
 import ro.mycode.solarsyncbroker.battery.exceptions.BatteryAlreadyExistsException;
 import ro.mycode.solarsyncbroker.battery.exceptions.BatteryNotFoundException;
+import ro.mycode.solarsyncbroker.battery.exceptions.BatteryPowerLimitException;
+import ro.mycode.solarsyncbroker.battery.exceptions.BatterySocLimitException;
 import ro.mycode.solarsyncbroker.financial.exceptions.FinancialTransactionNotFoundException;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedException;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
-import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyexistsException;
+import ro.mycode.solarsyncbroker.users.exceptions.UserAlreadyExistsException;
 import ro.mycode.solarsyncbroker.users.exceptions.UserNotFoundException;
 
 @RestControllerAdvice
@@ -20,35 +23,43 @@ public class GlobalExceptionHandler {
             UserNotFoundException.class,
             BatteryNotFoundException.class,
             HouseNotFoundException.class,
-            FinancialTransactionNotFoundException.class,
+            FinancialTransactionNotFoundException.class
     })
-    public ResponseEntity<String> handleNotFoundExceptions(RuntimeException e) {
-        ApiErrorResponse apiErrorResponse = ApiErrorResponse.builder()
-                .message(e.getMessage())
-                .status(HttpStatus.NOT_FOUND.value())
-                .build();
-        return new ResponseEntity<>(apiErrorResponse.error(), HttpStatus.NOT_FOUND);
-    }
-
-    @ExceptionHandler(AccessDeniedExceptions.class)
-    public ResponseEntity<String> handleAccessDeniedException(AccessDeniedExceptions e) {
-        ApiErrorResponse apiErrorResponse = ApiErrorResponse.builder()
-                .message(e.getMessage())
-                .status(HttpStatus.FORBIDDEN.value()) // Corectat la 403
-                .build();
-        return new ResponseEntity<>(apiErrorResponse.error(), HttpStatus.FORBIDDEN);
+    public ResponseEntity<ApiErrorResponse> handleNotFoundExceptions(RuntimeException e) {
+        return buildResponse(HttpStatus.NOT_FOUND, e);
     }
 
     @ExceptionHandler({
-            UserAlreadyexistsException.class,
+            UserAlreadyExistsException.class,
             BatteryAlreadyExistsException.class,
-            HouseAlreadyExistsExcption.class
+            HouseAlreadyExistsException.class
     })
-    public ResponseEntity<String> handleAlreadyExistsExceptions(RuntimeException e) {
-        ApiErrorResponse apiErrorResponse = ApiErrorResponse.builder()
+    public ResponseEntity<ApiErrorResponse> handleAlreadyExistsExceptions(RuntimeException e) {
+        return buildResponse(HttpStatus.CONFLICT, e);
+    }
+
+    @ExceptionHandler({
+            AccessDeniedExceptions.class,
+            HouseAccessDeniedException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleAccessDeniedExceptions(RuntimeException e) {
+        return buildResponse(HttpStatus.FORBIDDEN, e);
+    }
+
+    @ExceptionHandler({
+            BatteryPowerLimitException.class,
+            BatterySocLimitException.class
+    })
+    public ResponseEntity<ApiErrorResponse> handleBadRequestExceptions(RuntimeException e) {
+        return buildResponse(HttpStatus.BAD_REQUEST, e);
+    }
+
+    // Statusul din body si cel din raspunsul HTTP vin din acelasi HttpStatus.
+    private ResponseEntity<ApiErrorResponse> buildResponse(HttpStatus status, RuntimeException e) {
+        ApiErrorResponse body = ApiErrorResponse.builder()
                 .message(e.getMessage())
-                .status(HttpStatus.CONFLICT.value())
+                .status(status.value())
                 .build();
-        return new ResponseEntity<>(apiErrorResponse.error(), HttpStatus.CONFLICT);
+        return ResponseEntity.status(status).body(body);
     }
 }

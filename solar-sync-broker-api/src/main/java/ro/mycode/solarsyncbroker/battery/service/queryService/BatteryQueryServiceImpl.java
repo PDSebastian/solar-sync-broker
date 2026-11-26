@@ -6,7 +6,7 @@ import ro.mycode.solarsyncbroker.battery.dtos.BatteryResponse;
 import ro.mycode.solarsyncbroker.battery.mapper.BatteryMapper;
 import ro.mycode.solarsyncbroker.battery.model.Battery;
 import ro.mycode.solarsyncbroker.battery.repository.BatteryRepository;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedHandler;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.users.exceptions.UserNotFoundException;
 import ro.mycode.solarsyncbroker.users.model.User;
@@ -30,7 +30,7 @@ public class BatteryQueryServiceImpl implements BatteryQueryService {
         Battery battery = batteryRepository.findBatteryByHouseId(houseId).orElseThrow(HouseNotFoundException::new);
 
         if (user.getUserType() != UserType.ADMIN && !battery.getHouse().getOwner().getId().equals(user.getId())) {
-            throw new HouseAccessDeniedHandler();
+            throw new HouseAccessDeniedException();
         }
 
         return BatteryMapper.batterytoBatteryResponse(battery);

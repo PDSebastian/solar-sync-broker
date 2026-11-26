@@ -5,7 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ro.mycode.solarsyncbroker.battery.model.Battery;
 import ro.mycode.solarsyncbroker.house.dtos.HouseRequest;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsExcption;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAlreadyExistsException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.mapper.HouseMapper;
 import ro.mycode.solarsyncbroker.house.model.House;
@@ -29,7 +29,7 @@ public class HouseCommandServiceImpl implements HouseCommandService {
     @Transactional
     public HouseResponse createHouse(HouseRequest houseRequest) {
         if (houseRepository.existsByName(houseRequest.name())) {
-            throw new HouseAlreadyExistsExcption();
+            throw new HouseAlreadyExistsException();
         }
 
         User owner = userRepository.findById(houseRequest.ownerId())
@@ -62,7 +62,7 @@ public class HouseCommandServiceImpl implements HouseCommandService {
                 .orElseThrow(() -> new UserNotFoundException());
 
         if(!house.getName().equals(houseRequest.name()) && houseRepository.existsByName(houseRequest.name())) {
-            throw new HouseAlreadyExistsExcption();
+            throw new HouseAlreadyExistsException();
         }
 
         house.setName(houseRequest.name());

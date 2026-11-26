@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedHandler;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.model.House;
 import ro.mycode.solarsyncbroker.house.repository.HouseRepository;
@@ -190,6 +190,6 @@ class HouseQueryServiceIT {
 
         Long id = saved.getId();
 
-        assertThrows(HouseAccessDeniedHandler.class, () -> houseQueryService.getHouseForCaller(id, uEmail ));
+        assertThrows(HouseAccessDeniedException.class, () -> houseQueryService.getHouseForCaller(id, uEmail ));
     }
 }

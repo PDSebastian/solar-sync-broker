@@ -2,11 +2,12 @@ package ro.mycode.solarsyncbroker.house.service.queryService;
 
 import org.springframework.stereotype.Component;
 import ro.mycode.solarsyncbroker.house.dtos.HouseResponse;
-import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedHandler;
+import ro.mycode.solarsyncbroker.house.exceptions.HouseAccessDeniedException;
 import ro.mycode.solarsyncbroker.house.exceptions.HouseNotFoundException;
 import ro.mycode.solarsyncbroker.house.mapper.HouseMapper;
 import ro.mycode.solarsyncbroker.house.model.House;
 import ro.mycode.solarsyncbroker.house.repository.HouseRepository;
+import ro.mycode.solarsyncbroker.users.exceptions.UserNotFoundException;
 import ro.mycode.solarsyncbroker.users.model.User;
 import ro.mycode.solarsyncbroker.users.model.UserType;
 import ro.mycode.solarsyncbroker.users.repository.UserRepository;
@@ -39,18 +40,18 @@ public class HouseQueryServiceImpl implements HouseQueryService {
 
     @Override
     public HouseResponse getHouseForCaller(Long id, String email) {
-        User caller = userRepository.findByEmail(email).orElseThrow(() -> new IllegalArgumentException());
+        User caller = userRepository.findByEmail(email).orElseThrow(UserNotFoundException::new);
         House h = houseRepository.findById(id).orElseThrow(() -> new HouseNotFoundException());
 
         if (caller.getUserType() != UserType.ADMIN && !h.getOwner().getId().equals(caller.getId())) {
-            throw new HouseAccessDeniedHandler();
+            throw new HouseAccessDeniedException();
         }
 
         return HouseMapper.houseToHouseResponse(h);
     }
 
     public void checkHouseAccess(String email, Long houseId) {
-        User user = userRepository.findByEmail(email).orElseThrow(HouseAccessDeniedHandler::new);
+        User user = userRepository.findByEmail(email).orElseThrow(HouseAccessDeniedException::new);
 
         if (user.getUserType() == UserType.ADMIN || user.getUserType() == UserType.OPERATOR) {
             return;
@@ -58,7 +59,7 @@ public class HouseQueryServiceImpl implements HouseQueryService {
 
         boolean isOwner = houseRepository.existsByIdAndOwner_Email(houseId, email);
         if (!isOwner) {
-            throw new HouseAccessDeniedHandler();
+            throw new HouseAccessDeniedException();
         }
     }
 
