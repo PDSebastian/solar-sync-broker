@@ -1,0 +1,4 @@
+# Secrete locale: nu se comit. .env.example (fara valori) ramane in repo.
+.env
+.env.*
+!.env.example

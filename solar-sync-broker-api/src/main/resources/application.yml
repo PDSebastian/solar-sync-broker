@@ -2,9 +2,9 @@ spring:
   application:
     name: solar-sync-broker-api
   datasource:
-    url: jdbc:mysql://localhost:3307/solarsyncbroker_db?createDatabaseIfNotExist=true
-    username: root
-    password: root
+    url: ${DB_URL:jdbc:mysql://localhost:3307/solarsyncbroker_db?createDatabaseIfNotExist=true}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -43,7 +43,7 @@ springdoc:
 
 application:
   jwt:
-    secretKey: ${JWT_SECRET_KEY:dev-only-solarsync-secret-key-please-change-in-prod-0123456789ABCDEF}
+    secretKey: ${JWT_SECRET_KEY}
     tokenExpirationAfterDays: 7
 
 solarsync:

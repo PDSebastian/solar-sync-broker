@@ -1,8 +1,8 @@
 spring:
   datasource:
     url: jdbc:h2:mem:test;DB_CLOSE_DELAY=-1;MODE=MySQL
-    username: root
-    password: root
+    username: sa
+    password:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
@@ -16,3 +16,8 @@ spring:
     enabled: false
   flyway:
     enabled: false
+
+application:
+  jwt:
+    # Valoare falsa, doar pentru teste (nu e secretul real).
+    secretKey: test-only-fake-jwt-key-0123456789-0123456789-0123456789-0123456789-abcdef
